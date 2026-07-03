@@ -5,11 +5,11 @@ from openai import OpenAI
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
 
-os.environ["GROQ_API_KEY"] = "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"
-
+# إعداد مفتاح الـ API من متغيرات النظام (Environment Variables)
+api_key = os.environ.get("GROQ_API_KEY")
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("GROQ_API_KEY")
+    api_key=api_key
 )
 
 app = FastAPI()
@@ -26,6 +26,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# تهيئة قاعدة البيانات عند بدء التشغيل
 init_db()
 
 def get_bot_status(phone):
@@ -53,7 +54,7 @@ def get_airline_response(user_question, phone):
     if phone not in chat_histories:
         chat_histories[phone] = []
     
-    # تنظيف ذاكرة المحادثة إذا طالت أكثر من اللازم لمنع تكرار مواضيع قديمة
+    # تنظيف ذاكرة المحادثة لمنع التكرار
     if len(chat_histories[phone]) > 6:
         chat_histories[phone] = chat_histories[phone][-4:]
         
@@ -83,7 +84,7 @@ def get_airline_response(user_question, phone):
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile", 
         messages=messages,
-        temperature=0.0 # تم تغييرها لـ 0.0 ليكون البوت حرفياً ولا يألف من عنده
+        temperature=0.0
     )
     
     bot_reply = response.choices[0].message.content
@@ -94,6 +95,11 @@ def get_airline_response(user_question, phone):
 @app.get("/", response_class=HTMLResponse)
 def home():
     return "سيرفر ضيوف الديار يعمل بنجاح!"
+
+# مسار إضافي لخدمة UptimeRobot
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
 
 @app.post("/whatsapp-webhook")
 def whatsapp_webhook(text: str = Form(...), phone: str = Form(...), sender: str = Form(...)):
@@ -117,4 +123,6 @@ def whatsapp_webhook(text: str = Form(...), phone: str = Form(...), sender: str 
     return {"bot_reply": reply, "system_log": "تم الرد بنجاح."}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # استخدام المنفذ المخصص من منصة السحابة أو المنفذ الافتراضي 10000
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
